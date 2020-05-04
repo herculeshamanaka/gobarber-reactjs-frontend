@@ -3,7 +3,11 @@ import { FiArrowLeft, FiMail, FiLock, FiUser } from 'react-icons/fi';
 import { FormHandles } from '@unform/core';
 import { Form } from '@unform/web';
 import * as Yup from 'yup';
-import { Link } from 'react-router-dom';
+import { Link, useHistory } from 'react-router-dom';
+
+import api from '../../services/api';
+
+import { useToast } from '../../hooks/toast';
 
 import getValidationErrors from '../../utils/getValidationErrors';
 
@@ -14,28 +18,62 @@ import { Container, Content, Background, AnimatedContainer } from './styles';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 
+interface SignUpFormData {
+  name: string;
+  email: string;
+  password: string;
+}
+
 const SignUp: React.FC = () => {
   const formRef = useRef<FormHandles>(null);
+  const { addToast } = useToast();
+  const history = useHistory();
 
-  const handleSubmit = useCallback(async (data: object) => {
-    try {
-      formRef.current?.setErrors({});
+  const handleSubmit = useCallback(
+    async (data: SignUpFormData) => {
+      try {
+        formRef.current?.setErrors({});
 
-      const schema = Yup.object().shape({
-        name: Yup.string().required('Name is mandatory!'),
-        email: Yup.string()
-          .required('E-mail is mandatory!')
-          .email('Type a valid e-mail!'),
-        password: Yup.string().min(6, 'Password must have at least 6 digits!'),
-      });
+        const schema = Yup.object().shape({
+          name: Yup.string().required('Name is mandatory!'),
+          email: Yup.string()
+            .required('E-mail is mandatory!')
+            .email('Type a valid e-mail!'),
+          password: Yup.string().min(
+            6,
+            'Password must have at least 6 digits!',
+          ),
+        });
 
-      await schema.validate(data, { abortEarly: false });
-    } catch (err) {
-      const errorsFound = getValidationErrors(err);
+        await schema.validate(data, { abortEarly: false });
 
-      formRef.current?.setErrors(errorsFound);
-    }
-  }, []);
+        await api.post('/users', data);
+
+        history.push('/');
+
+        addToast({
+          type: 'success',
+          title: 'Sign up finished!',
+          description: 'You can now proceed to login in GoBarber.',
+        });
+      } catch (err) {
+        if (err instanceof Yup.ValidationError) {
+          const errorsFound = getValidationErrors(err);
+
+          formRef.current?.setErrors(errorsFound);
+
+          return;
+        }
+
+        addToast({
+          type: 'error',
+          title: 'Sign Up Error',
+          description: 'Error while signing up, please check try again.',
+        });
+      }
+    },
+    [addToast, history],
+  );
 
   return (
     <Container>
